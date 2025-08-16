@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My Shifts</title>
+  <style>
+    body{margin:0;background:#0b0f1a;color:#e5e7eb;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif}
+    .wrap{max-width:900px;margin:24px auto;padding:0 16px}
+    header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    h1{font-size:1.25rem;margin:0}
+    .panel{background:#0f172a;border:1px solid #1f2937;border-radius:14px}
+    form#shiftForm{display:flex;flex-direction:column;gap:10px;padding:14px}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    input,select,button{background:#0b1220;color:#e5e7eb;border:1px solid #1f2937;border-radius:10px;padding:10px}
+    input:focus,select:focus{outline:2px solid #334155}
+    button{cursor:pointer}
+    .btn{padding:10px 14px;border-radius:10px;border:1px solid #1f2937;background:#0b1220}
+    .btn.primary{background:#22c55e;color:#062010;border-color:#16a34a}
+    .btn.warn{background:#ef4444;color:#300b0b;border-color:#b91c1c}
+    .btn.small{padding:6px 10px;font-size:.8rem}
+
+    /* compact boxes */
+    select.small{width:70px;padding:6px 8px}
+    select.month{min-width:100px}
+    select.job{min-width:220px}
+    input.day{width:86px;text-align:center}
+    input.hm{width:96px;text-align:center;letter-spacing:1px}
+    input.hm.invalid{border-color:#ef4444; box-shadow:0 0 0 2px rgba(239,68,68,.25)}
+
+    .list{padding:10px 12px}
+    .monthHdr{color:#a1a1aa;font-weight:600;margin:12px 8px 8px}
+    .item{display:flex;gap:12px;background:#101827;border:1px solid #1f2937;border-radius:12px;padding:12px;margin-bottom:10px}
+    .stripe{width:8px;border-radius:8px;background:#334155}
+    .meta{width:60px;text-align:center;color:#9ca3af}
+    .meta .day{font-size:.75rem;text-transform:uppercase}
+    .meta .date{margin-top:2px;font-size:1.1rem;color:#fff;font-weight:700}
+    .content{flex:1}
+    .title{font-weight:700;margin-bottom:4px}
+    .sub{color:#9ca3af}
+    .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+    .chip{background:#111827;border:1px solid #1f2937;border-radius:999px;padding:6px 10px;font-size:.85rem}
+    .actions{display:flex;gap:6px;margin-top:8px}
+    .footer{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;color:#9ca3af}
+
+    /* weekly bar */
+    .weekbar{display:flex;align-items:center;justify-content:space-between;padding:12px 14px}
+    .weeknav{display:flex;align-items:center;gap:10px}
+    .iconbtn{background:#0b1220;border:1px solid #1f2937;border-radius:8px;padding:8px 10px;cursor:pointer}
+    .totals{display:flex;gap:8px;flex-wrap:wrap}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Your shifts</h1>
+      <div style="display:flex;gap:8px">
+        <button class="btn warn" id="clearBtn">Clear All</button>
+      </div>
+    </header>
+
+    <!-- Add / Edit -->
+    <section class="panel">
+      <form id="shiftForm" autocomplete="off">
+        <!-- Row 1: Year + Month + Day + Job -->
+        <div class="row">
+          <select id="year" class="small"></select>
+          <select id="month" class="month"></select>
+          <input id="day" class="day" type="number" min="1" max="31" placeholder="Day" />
+          <select id="job" class="job">
+            <option>Field House (Front Desk)</option>
+            <option>Field House (South Desk)</option>
+            <option>Chartwell (Southside)</option>
+            <option>Meetings</option>
+            <option>Others</option>
+          </select>
+        </div>
+        <!-- Row 2: Start/End (manual) + AM/PM selects + Add -->
+        <div class="row">
+          <input id="start" class="hm" type="text" inputmode="numeric" placeholder="HH:MM" maxlength="5" />
+          <select id="startAmPm" class="small"><option>AM</option><option>PM</option></select>
+
+          <input id="end" class="hm" type="text" inputmode="numeric" placeholder="HH:MM" maxlength="5" />
+          <select id="endAmPm" class="small"><option>AM</option><option>PM</option></select>
+
+          <button id="addBtn" class="btn primary" type="submit">Add</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Weekly bar -->
+    <section class="panel" style="margin-top:14px">
+      <div class="weekbar">
+        <div class="weeknav">
+          <button class="iconbtn" id="prevWeek">◀︎</button>
+          <div id="weekLabel" class="chip">This week</div>
+          <button class="iconbtn" id="nextWeek">▶︎</button>
+        </div>
+        <div class="totals">
+          <div id="weekTotals" class="chip">0 shifts • 0.00 hrs</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- List + overall stats -->
+    <section class="panel" style="margin-top:14px">
+      <div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center">
+        <button class="btn" id="sortDateBtn">Sort by Date</button>
+        <div id="stats" class="chip">0 shifts • 0.00 hrs</div>
+      </div>
+      <div id="list" class="list"></div>
+      <div class="footer">
+        <small>Saved in this browser (localStorage).</small>
+        <small id="lastSaved">Last saved: never</small>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const key='shift-tracker:v14';
+    const $=s=>document.querySelector(s);
+    let state=load();
+    let editId=null;
+
+    /* ---------- helpers ---------- */
+    const pad2 = n => String(n).padStart(2,'0');
+    const daysInMonth = (y,m) => new Date(y, m, 0).getDate(); // m: 1-12
+
+    const JOBS = {
+      "Field House (Front Desk)":   "#60a5fa",
+      "Field House (South Desk)":   "#34d399",
+      "Chartwell (Southside)":      "#f59e0b",
+      "Meetings":                   "#a78bfa",
+      "Others":                     "#737373"
+    };
+
+    function parseHM(t){if(!t)return 0;const [h,m]=t.split(':').map(Number);return h*60+m}
+    function hoursBetween(a,b){let s=parseHM(a),e=parseHM(b);if(e<s)e+=24*60;return (e-s)/60}
+    function save(){localStorage.setItem(key,JSON.stringify(state));$('#lastSaved').textContent='Last saved: '+new Date().toLocaleString()}
+    function load(){try{return JSON.parse(localStorage.getItem(key))||{shifts:[]}}catch{return {shifts:[]}}}
+    function weekday(d){return new Date(d+'T00:00:00').toLocaleDateString(undefined,{weekday:'short'})}
+    function dayof(d){return new Date(d+'T00:00:00').getDate()}
+    function monthLabel(d){return new Date(d+'T00:00:00').toLocaleDateString(undefined,{month:'long'})}
+
+    function parse12h(text){
+      const m = /^(\d{1,2}):(\d{2})$/.exec(text || '');
+      if(!m) return null;
+      let h = +m[1], mm = +m[2];
+      if(h<1 || h>12 || mm<0 || mm>59) return null;
+      return {h, m:mm};
+    }
+    function to24h(text, ampm){
+      const t = parse12h(text); if(!t) return null;
+      let h=t.h, m=t.m;
+      if(ampm==='PM' && h!==12) h+=12;
+      if(ampm==='AM' && h===12) h=0;
+      return `${pad2(h)}:${pad2(m)}`;
+    }
+
+    /* ---------- date selects ---------- */
+    const yearSel=$('#year'), monthSel=$('#month'), dayInput=$('#day'), jobSel=$('#job');
+    (function populateDateSelectors(){
+      const today=new Date();
+      const thisYear=today.getFullYear();
+      for(let y=thisYear;y<=thisYear+5;y++){yearSel.add(new Option(y,y));}
+      const months=[['Jan','01'],['Feb','02'],['Mar','03'],['Apr','04'],['May','05'],['Jun','06'],['Jul','07'],['Aug','08'],['Sep','09'],['Oct','10'],['Nov','11'],['Dec','12']];
+      months.forEach(([name,val])=>monthSel.add(new Option(name,val)));
+      yearSel.value=thisYear;
+      monthSel.value=pad2(today.getMonth()+1);
+      dayInput.value=today.getDate();
+      dayInput.max = daysInMonth(+yearSel.value, +monthSel.value);
+    })();
+
+    function clampDay(){
+      const max = daysInMonth(+yearSel.value, +monthSel.value);
+      dayInput.max = max;
+      if(dayInput.value){
+        let d = Math.min(Math.max(1, +dayInput.value), max);
+        dayInput.value = d;
+      }
+    }
+    yearSel.addEventListener('change', clampDay);
+    monthSel.addEventListener('change', clampDay);
+
+    /* ---------- strong input mask for HH:MM ---------- */
+    function attachTimeMask(el){
+      el.addEventListener('input', () => {
+        let digits = (el.value || '').replace(/\D/g,'').slice(0,4);
+        if(digits.length >= 3) el.value = digits.slice(0,2) + ':' + digits.slice(2);
+        else el.value = digits;
+        el.classList.remove('invalid');
+      });
+      el.addEventListener('keydown', (ev) => {
+        const okKeys = ['Backspace','Delete','ArrowLeft','ArrowRight','Tab','Home','End'];
+        if (okKeys.includes(ev.key) || /^\d$/.test(ev.key)) return;
+        ev.preventDefault();
+      });
+      el.addEventListener('blur', () => {
+        const m = /^(\d{1,2})(?::(\d{1,2}))?$/.exec(el.value || '');
+        if(!m){ if(el.value) el.classList.add('invalid'); return; }
+        let hh = +m[1], mm = +(m[2] ?? 0);
+        if(hh<1 || h>12 || mm<0 || mm>59){ el.classList.add('invalid'); return; }
+        el.value = `${pad2(hh)}:${pad2(mm)}`;
+      });
+    }
+    attachTimeMask($('#start'));
+    attachTimeMask($('#end'));
+
+    /* ---------- week nav (Sunday -> Saturday) ---------- */
+    let weekOffset = 0; // 0 = this week, -1 prev, +1 next
+    function getWeekRange(offset=0){
+      const today = new Date();
+      const target = new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset*7);
+      const day = target.getDay();         // Sun=0, Mon=1, ...
+      const sunday = new Date(target);     // start on Sunday
+      sunday.setDate(target.getDate() - day);
+      const saturday = new Date(sunday);   // end on Saturday
+      saturday.setDate(sunday.getDate() + 6);
+      return { sunday, saturday };
+    }
+    function fmtShort(d){return d.toLocaleDateString(undefined,{month:'short',day:'numeric'});}
+    function dateInRange(iso,range){
+      const t = new Date(iso+'T00:00:00');
+      return t>=range.sunday && t<=range.saturday;
+    }
+
+    function updateWeekBar(){
+      const {sunday,saturday} = getWeekRange(weekOffset);
+      $('#weekLabel').textContent = `Week ${fmtShort(sunday)} – ${fmtShort(saturday)}`;
+      const shifts = state.shifts.filter(s=>dateInRange(s.date,{sunday,saturday}));
+      const total = shifts.reduce((a,s)=>a+hoursBetween(s.start,s.end),0);
+      $('#weekTotals').textContent = `${shifts.length} shift${shifts.length!==1?'s':''} • ${total.toFixed(2)} hrs`;
+    }
+    $('#prevWeek').addEventListener('click',()=>{weekOffset--; updateWeekBar();});
+    $('#nextWeek').addEventListener('click',()=>{weekOffset++; updateWeekBar();});
+
+    /* ---------- render list ---------- */
+    function render(){
+      const list=$('#list'); list.innerHTML='';
+      if(!state.shifts.length){list.innerHTML='<div style="text-align:center;color:#9ca3af;padding:20px">No shifts yet</div>'; updateStats(); updateWeekBar(); return;}
+      state.shifts.sort((a,b)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start));
+      let currentMonth='';
+      state.shifts.forEach(s=>{
+        const m=monthLabel(s.date);
+        if(m!==currentMonth){currentMonth=m;const h=document.createElement('div');h.className='monthHdr';h.textContent=m;list.appendChild(h);}
+        list.appendChild(cardFor(s));
+      });
+      updateStats();
+      updateWeekBar();
+    }
+
+    function cardFor(s){
+      const wrap=document.createElement('div'); wrap.className='item';
+      const color = JOBS[s.job] || '#334155';
+      wrap.innerHTML=`<div class="stripe" style="background:${color}"></div>
+        <div class="meta"><div class="day">${weekday(s.date)}</div><div class="date">${dayof(s.date)}</div></div>
+        <div class="content">
+          <div class="title">${s.job || 'Shift'}</div>
+          <div class="sub">${s.date}</div>
+          <div class="chips">
+            <div class="chip">${s.start} – ${s.end}</div>
+            <div class="chip">${hoursBetween(s.start,s.end).toFixed(2)} hrs</div>
+          </div>
+          <div class="actions">
+            <button class="btn small" onclick="startEdit('${s.id}')">Edit</button>
+            <button class="btn small warn" onclick="delShift('${s.id}')">Delete</button>
+          </div>
+        </div>`;
+      return wrap;
+    }
+
+    function updateStats(){
+      const total=state.shifts.reduce((a,s)=>a+hoursBetween(s.start,s.end),0);
+      $('#stats').textContent=`${state.shifts.length} shift${state.shifts.length!==1?'s':''} • ${total.toFixed(2)} hrs`;
+    }
+
+    /* ---------- form submit ---------- */
+    $('#shiftForm').addEventListener('submit',e=>{
+      e.preventDefault();
+      const year = yearSel.value;
+      const month= monthSel.value;
+      const day  = pad2(dayInput.value || 1);
+      const fullDate = `${year}-${month}-${day}`;
+
+      const startRaw = $('#start').value;
+      const endRaw   = $('#end').value;
+      const start = to24h(startRaw,$('#startAmPm').value);
+      const end   = to24h(endRaw,$('#endAmPm').value);
+
+      const startOk = !!start, endOk = !!end;
+      $('#start').classList.toggle('invalid', !startOk && !!startRaw);
+      $('#end').classList.toggle('invalid', !endOk && !!endRaw);
+      if(!startOk || !endOk){ alert('Please enter time as HH:MM (1–12 for hours, 00–59 for minutes).'); return; }
+      if(hoursBetween(start,end)<=0){ alert('End must be after start (same day).'); return; }
+
+      const job = jobSel.value;
+
+      if(editId){
+        const idx=state.shifts.findIndex(s=>s.id===editId);
+        if(idx>-1) state.shifts[idx]={...state.shifts[idx],date:fullDate,start,end,job};
+        editId=null; $('#addBtn').textContent='Add';
+      }else{
+        state.shifts.push({id:Math.random().toString(36).slice(2,9),date:fullDate,start,end,job});
+      }
+      save(); render();
+      $('#start').value=''; $('#end').value='';
+    });
+
+    /* ---------- edit/delete ---------- */
+    function startEdit(id){
+      const s=state.shifts.find(x=>x.id===id); if(!s) return;
+      const d=new Date(s.date);
+      yearSel.value=d.getFullYear();
+      monthSel.value=pad2(d.getMonth()+1);
+      dayInput.value=d.getDate();
+      jobSel.value=s.job || 'Others';
+
+      function setTime(val,boxSel,ampmSel){
+        let [h,m]=val.split(':').map(Number);
+        let ap='AM'; if(h>=12){ap='PM'; if(h>12)h-=12;} if(h===0)h=12;
+        $(boxSel).value=`${pad2(h)}:${pad2(m)}`; $(ampmSel).value=ap;
+      }
+      setTime(s.start,'#start','#startAmPm');
+      setTime(s.end,'#end','#endAmPm');
+
+      editId=id; $('#addBtn').textContent='Update';
+      window.scrollTo({top:0,behavior:'smooth'});
+    }
+
+    function delShift(id){
+      if(!confirm('Delete this shift?')) return;
+      state.shifts=state.shifts.filter(s=>s.id!==id);
+      save(); render();
+    }
+
+    /* ---------- top buttons ---------- */
+    $('#sortDateBtn').addEventListener('click',()=>{state.shifts.sort((a,b)=>a.date.localeCompare(b.date));save();render();});
+    $('#clearBtn').addEventListener('click',()=>{if(!confirm('Remove all shifts?'))return;state={shifts:[]};save();render();});
+
+    render();
+  </script>
+</body>
+</html>
