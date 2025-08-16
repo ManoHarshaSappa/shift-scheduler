@@ -21,12 +21,19 @@
     .btn.small{padding:6px 10px;font-size:.8rem}
 
     /* compact boxes */
-    select.small{width:70px;padding:6px 8px}
-    select.month{min-width:100px}
-    select.job{min-width:220px}
-    input.day{width:86px;text-align:center}
-    input.hm{width:96px;text-align:center;letter-spacing:1px}
+    select.small{width:80px;padding:6px 8px}
+    select.month{min-width:110px}
+    select.job{min-width:260px}
+    input.day{width:100px;text-align:center}
+    input.hm{width:120px;text-align:center;letter-spacing:1px}
     input.hm.invalid{border-color:#ef4444; box-shadow:0 0 0 2px rgba(239,68,68,.25)}
+
+    /* NEW: big job row and stacked time rows */
+    .row-job select{width:100%;font-size:1rem;padding:14px}
+    .row-start, .row-end{align-items:center}
+    .row-end{gap:10px}
+    .row-end .btn.primary{padding:10px 18px}
+    .last-line-small *{font-size:.95rem}
 
     .list{padding:10px 12px}
     .monthHdr{color:#a1a1aa;font-weight:600;margin:12px 8px 8px}
@@ -48,6 +55,12 @@
     .weeknav{display:flex;align-items:center;gap:10px}
     .iconbtn{background:#0b1220;border:1px solid #1f2937;border-radius:8px;padding:8px 10px;cursor:pointer}
     .totals{display:flex;gap:8px;flex-wrap:wrap}
+
+    @media (max-width:520px){
+      input.hm{width:110px}
+      input.day{width:90px}
+      select.month{min-width:98px}
+    }
   </style>
 </head>
 <body>
@@ -62,12 +75,9 @@
     <!-- Add / Edit -->
     <section class="panel">
       <form id="shiftForm" autocomplete="off">
-        <!-- Row 1: Year + Month + Day + Job -->
-        <div class="row">
-          <select id="year" class="small"></select>
-          <select id="month" class="month"></select>
-          <input id="day" class="day" type="number" min="1" max="31" placeholder="Day" />
-          <select id="job" class="job">
+        <!-- Row 0: JOB FIRST & BIG -->
+        <div class="row row-job">
+          <select id="job" class="job" aria-label="Job / Location">
             <option>Field House (Front Desk)</option>
             <option>Field House (South Desk)</option>
             <option>Chartwell (Southside)</option>
@@ -75,15 +85,29 @@
             <option>Others</option>
           </select>
         </div>
-        <!-- Row 2: Start/End (manual) + AM/PM selects + Add -->
+
+        <!-- Row 1: Year + Month + Day -->
         <div class="row">
-          <input id="start" class="hm" type="text" inputmode="numeric" placeholder="HH:MM" maxlength="5" />
-          <select id="startAmPm" class="small"><option>AM</option><option>PM</option></select>
+          <select id="year" class="small" aria-label="Year"></select>
+          <select id="month" class="month" aria-label="Month"></select>
+          <input id="day" class="day" type="number" min="1" max="31" placeholder="Day" aria-label="Day" />
+        </div>
 
-          <input id="end" class="hm" type="text" inputmode="numeric" placeholder="HH:MM" maxlength="5" />
-          <select id="endAmPm" class="small"><option>AM</option><option>PM</option></select>
+        <!-- Row 2: START (single line) -->
+        <div class="row row-start">
+          <input id="start" class="hm" type="text" inputmode="numeric" placeholder="Start HH:MM" maxlength="5" aria-label="Start time" />
+          <select id="startAmPm" class="small" aria-label="Start AM/PM">
+            <option>AM</option><option>PM</option>
+          </select>
+        </div>
 
-          <button id="addBtn" class="btn primary" type="submit">Add</button>
+        <!-- Row 3: END (single line) + ADD (slightly smaller) -->
+        <div class="row row-end last-line-small">
+          <input id="end" class="hm" type="text" inputmode="numeric" placeholder="End HH:MM" maxlength="5" aria-label="End time" />
+          <select id="endAmPm" class="small" aria-label="End AM/PM">
+            <option>AM</option><option>PM</option>
+          </select>
+          <button id="addBtn" class="btn primary" type="submit" style="margin-left:auto">Add</button>
         </div>
       </form>
     </section>
@@ -117,7 +141,7 @@
   </div>
 
   <script>
-    const key='shift-tracker:v14';
+    const key='shift-tracker:v15'; // bumped key so old data won’t clash
     const $=s=>document.querySelector(s);
     let state=load();
     let editId=null;
@@ -182,7 +206,7 @@
     yearSel.addEventListener('change', clampDay);
     monthSel.addEventListener('change', clampDay);
 
-    /* ---------- strong input mask for HH:MM ---------- */
+    /* ---------- strong input mask for HH:MM (FIXED BUG) ---------- */
     function attachTimeMask(el){
       el.addEventListener('input', () => {
         let digits = (el.value || '').replace(/\D/g,'').slice(0,4);
@@ -199,7 +223,9 @@
         const m = /^(\d{1,2})(?::(\d{1,2}))?$/.exec(el.value || '');
         if(!m){ if(el.value) el.classList.add('invalid'); return; }
         let hh = +m[1], mm = +(m[2] ?? 0);
-        if(hh<1 || h>12 || mm<0 || mm>59){ el.classList.add('invalid'); return; }
+        if(hh<1 || hh>12 || mm<0 || mm>59){ // <-- was `h>12` before
+          el.classList.add('invalid'); return;
+        }
         el.value = `${pad2(hh)}:${pad2(mm)}`;
       });
     }
@@ -207,14 +233,14 @@
     attachTimeMask($('#end'));
 
     /* ---------- week nav (Sunday -> Saturday) ---------- */
-    let weekOffset = 0; // 0 = this week, -1 prev, +1 next
+    let weekOffset = 0;
     function getWeekRange(offset=0){
       const today = new Date();
       const target = new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset*7);
-      const day = target.getDay();         // Sun=0, Mon=1, ...
-      const sunday = new Date(target);     // start on Sunday
+      const day = target.getDay();
+      const sunday = new Date(target);
       sunday.setDate(target.getDate() - day);
-      const saturday = new Date(sunday);   // end on Saturday
+      const saturday = new Date(sunday);
       saturday.setDate(sunday.getDate() + 6);
       return { sunday, saturday };
     }
