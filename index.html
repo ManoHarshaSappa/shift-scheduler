@@ -20,7 +20,7 @@
     .btn.warn{background:#ef4444;color:#300b0b;border-color:#b91c1c}
     .btn.small{padding:6px 10px;font-size:.8rem}
 
-    /* compact boxes */
+    /* compact inputs */
     select.small{width:80px;padding:6px 8px}
     select.month{min-width:110px}
     select.job{min-width:260px}
@@ -28,7 +28,7 @@
     input.hm{width:120px;text-align:center;letter-spacing:1px}
     input.hm.invalid{border-color:#ef4444; box-shadow:0 0 0 2px rgba(239,68,68,.25)}
 
-    /* NEW: big job row and stacked time rows */
+    /* nicer layout */
     .row-job select{width:100%;font-size:1rem;padding:14px}
     .row-start, .row-end{align-items:center}
     .row-end{gap:10px}
@@ -50,12 +50,6 @@
     .actions{display:flex;gap:6px;margin-top:8px}
     .footer{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;color:#9ca3af}
 
-    /* weekly bar */
-    .weekbar{display:flex;align-items:center;justify-content:space-between;padding:12px 14px}
-    .weeknav{display:flex;align-items:center;gap:10px}
-    .iconbtn{background:#0b1220;border:1px solid #1f2937;border-radius:8px;padding:8px 10px;cursor:pointer}
-    .totals{display:flex;gap:8px;flex-wrap:wrap}
-
     @media (max-width:520px){
       input.hm{width:110px}
       input.day{width:90px}
@@ -72,10 +66,9 @@
       </div>
     </header>
 
-    <!-- Add / Edit -->
+    <!-- Add form -->
     <section class="panel">
       <form id="shiftForm" autocomplete="off">
-        <!-- Row 0: JOB FIRST & BIG -->
         <div class="row row-job">
           <select id="job" class="job" aria-label="Job / Location">
             <option>Field House (Front Desk)</option>
@@ -86,14 +79,12 @@
           </select>
         </div>
 
-        <!-- Row 1: Year + Month + Day -->
         <div class="row">
           <select id="year" class="small" aria-label="Year"></select>
           <select id="month" class="month" aria-label="Month"></select>
           <input id="day" class="day" type="number" min="1" max="31" placeholder="Day" aria-label="Day" />
         </div>
 
-        <!-- Row 2: START (single line) -->
         <div class="row row-start">
           <input id="start" class="hm" type="text" inputmode="numeric" placeholder="Start HH:MM" maxlength="5" aria-label="Start time" />
           <select id="startAmPm" class="small" aria-label="Start AM/PM">
@@ -101,7 +92,6 @@
           </select>
         </div>
 
-        <!-- Row 3: END (single line) + ADD (slightly smaller) -->
         <div class="row row-end last-line-small">
           <input id="end" class="hm" type="text" inputmode="numeric" placeholder="End HH:MM" maxlength="5" aria-label="End time" />
           <select id="endAmPm" class="small" aria-label="End AM/PM">
@@ -112,27 +102,18 @@
       </form>
     </section>
 
-    <!-- Weekly bar -->
+    <!-- List + controls (no week bar, no sort button) -->
     <section class="panel" style="margin-top:14px">
-      <div class="weekbar">
-        <div class="weeknav">
-          <button class="iconbtn" id="prevWeek">◀︎</button>
-          <div id="weekLabel" class="chip">This week</div>
-          <button class="iconbtn" id="nextWeek">▶︎</button>
+      <div style="padding:10px 14px;display:flex;gap:10px;justify-content:space-between;align-items:center">
+        <div id="viewToggle" style="display:flex;gap:6px">
+          <button id="tabAll" class="btn small" style="padding:6px 10px;opacity:.7">All</button>
+          <button id="tabUpcoming" class="btn small" style="padding:6px 10px">Upcoming</button>
         </div>
-        <div class="totals">
-          <div id="weekTotals" class="chip">0 shifts • 0.00 hrs</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- List + overall stats -->
-    <section class="panel" style="margin-top:14px">
-      <div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center">
-        <button class="btn" id="sortDateBtn">Sort by Date</button>
         <div id="stats" class="chip">0 shifts • 0.00 hrs</div>
       </div>
+
       <div id="list" class="list"></div>
+
       <div class="footer">
         <small>Saved in this browser (localStorage).</small>
         <small id="lastSaved">Last saved: never</small>
@@ -141,14 +122,16 @@
   </div>
 
   <script>
-    const key='shift-tracker:v15'; // bumped key so old data won’t clash
+    const key='shift-tracker:v16'; // bump to avoid clashes
     const $=s=>document.querySelector(s);
     let state=load();
     let editId=null;
 
-    /* ---------- helpers ---------- */
+    /* default view → UPCOMING */
+    let viewMode = 'upcoming';
+
     const pad2 = n => String(n).padStart(2,'0');
-    const daysInMonth = (y,m) => new Date(y, m, 0).getDate(); // m: 1-12
+    const daysInMonth = (y,m) => new Date(y, m, 0).getDate();
 
     const JOBS = {
       "Field House (Front Desk)":   "#60a5fa",
@@ -181,7 +164,11 @@
       return `${pad2(h)}:${pad2(m)}`;
     }
 
-    /* ---------- date selects ---------- */
+    /* upcoming helpers */
+    function shiftEndDate(s){ return new Date(`${s.date}T${s.end}:00`); }
+    function isPastShift(s){ return shiftEndDate(s) < new Date(); }
+
+    /* date selects */
     const yearSel=$('#year'), monthSel=$('#month'), dayInput=$('#day'), jobSel=$('#job');
     (function populateDateSelectors(){
       const today=new Date();
@@ -189,90 +176,65 @@
       for(let y=thisYear;y<=thisYear+5;y++){yearSel.add(new Option(y,y));}
       const months=[['Jan','01'],['Feb','02'],['Mar','03'],['Apr','04'],['May','05'],['Jun','06'],['Jul','07'],['Aug','08'],['Sep','09'],['Oct','10'],['Nov','11'],['Dec','12']];
       months.forEach(([name,val])=>monthSel.add(new Option(name,val)));
-      yearSel.value=thisYear;
-      monthSel.value=pad2(today.getMonth()+1);
-      dayInput.value=today.getDate();
-      dayInput.max = daysInMonth(+yearSel.value, +monthSel.value);
+      yearSel.value=thisYear; monthSel.value=pad2(today.getMonth()+1);
+      dayInput.value=today.getDate(); dayInput.max = daysInMonth(+yearSel.value, +monthSel.value);
     })();
-
     function clampDay(){
       const max = daysInMonth(+yearSel.value, +monthSel.value);
       dayInput.max = max;
-      if(dayInput.value){
-        let d = Math.min(Math.max(1, +dayInput.value), max);
-        dayInput.value = d;
-      }
+      if(dayInput.value){ let d = Math.min(Math.max(1, +dayInput.value), max); dayInput.value = d; }
     }
     yearSel.addEventListener('change', clampDay);
     monthSel.addEventListener('change', clampDay);
 
-    /* ---------- strong input mask for HH:MM (FIXED BUG) ---------- */
+    /* time mask */
     function attachTimeMask(el){
       el.addEventListener('input', () => {
         let digits = (el.value || '').replace(/\D/g,'').slice(0,4);
-        if(digits.length >= 3) el.value = digits.slice(0,2) + ':' + digits.slice(2);
-        else el.value = digits;
+        el.value = digits.length >= 3 ? digits.slice(0,2)+':'+digits.slice(2) : digits;
         el.classList.remove('invalid');
       });
       el.addEventListener('keydown', (ev) => {
-        const okKeys = ['Backspace','Delete','ArrowLeft','ArrowRight','Tab','Home','End'];
-        if (okKeys.includes(ev.key) || /^\d$/.test(ev.key)) return;
-        ev.preventDefault();
+        const ok = ['Backspace','Delete','ArrowLeft','ArrowRight','Tab','Home','End'];
+        if (ok.includes(ev.key) || /^\d$/.test(ev.key)) return; ev.preventDefault();
       });
       el.addEventListener('blur', () => {
         const m = /^(\d{1,2})(?::(\d{1,2}))?$/.exec(el.value || '');
         if(!m){ if(el.value) el.classList.add('invalid'); return; }
-        let hh = +m[1], mm = +(m[2] ?? 0);
-        if(hh<1 || hh>12 || mm<0 || mm>59){ // <-- was `h>12` before
-          el.classList.add('invalid'); return;
-        }
-        el.value = `${pad2(hh)}:${pad2(mm)}`;
+        let hh=+m[1], mm=+(m[2]??0);
+        if(hh<1||hh>12||mm<0||mm>59){ el.classList.add('invalid'); return; }
+        el.value=`${pad2(hh)}:${pad2(mm)}`;
       });
     }
     attachTimeMask($('#start'));
     attachTimeMask($('#end'));
 
-    /* ---------- week nav (Sunday -> Saturday) ---------- */
-    let weekOffset = 0;
-    function getWeekRange(offset=0){
-      const today = new Date();
-      const target = new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset*7);
-      const day = target.getDay();
-      const sunday = new Date(target);
-      sunday.setDate(target.getDate() - day);
-      const saturday = new Date(sunday);
-      saturday.setDate(sunday.getDate() + 6);
-      return { sunday, saturday };
-    }
-    function fmtShort(d){return d.toLocaleDateString(undefined,{month:'short',day:'numeric'});}
-    function dateInRange(iso,range){
-      const t = new Date(iso+'T00:00:00');
-      return t>=range.sunday && t<=range.saturday;
+    /* view + rendering */
+    function visibleShifts(){
+      const sorted = state.shifts.slice()
+        .sort((a,b)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start));
+      return viewMode==='upcoming' ? sorted.filter(s=>!isPastShift(s)) : sorted;
     }
 
-    function updateWeekBar(){
-      const {sunday,saturday} = getWeekRange(weekOffset);
-      $('#weekLabel').textContent = `Week ${fmtShort(sunday)} – ${fmtShort(saturday)}`;
-      const shifts = state.shifts.filter(s=>dateInRange(s.date,{sunday,saturday}));
-      const total = shifts.reduce((a,s)=>a+hoursBetween(s.start,s.end),0);
-      $('#weekTotals').textContent = `${shifts.length} shift${shifts.length!==1?'s':''} • ${total.toFixed(2)} hrs`;
-    }
-    $('#prevWeek').addEventListener('click',()=>{weekOffset--; updateWeekBar();});
-    $('#nextWeek').addEventListener('click',()=>{weekOffset++; updateWeekBar();});
-
-    /* ---------- render list ---------- */
     function render(){
       const list=$('#list'); list.innerHTML='';
-      if(!state.shifts.length){list.innerHTML='<div style="text-align:center;color:#9ca3af;padding:20px">No shifts yet</div>'; updateStats(); updateWeekBar(); return;}
-      state.shifts.sort((a,b)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start));
+      const rows = visibleShifts();
+
+      if(!rows.length){
+        list.innerHTML = `<div style="text-align:center;color:#9ca3af;padding:20px">
+          ${viewMode==='upcoming' ? 'No upcoming shifts' : 'No shifts yet'}
+        </div>`;
+        updateStats(); return;
+      }
+
       let currentMonth='';
-      state.shifts.forEach(s=>{
+      rows.forEach(s=>{
         const m=monthLabel(s.date);
         if(m!==currentMonth){currentMonth=m;const h=document.createElement('div');h.className='monthHdr';h.textContent=m;list.appendChild(h);}
         list.appendChild(cardFor(s));
       });
+
       updateStats();
-      updateWeekBar();
     }
 
     function cardFor(s){
@@ -296,11 +258,12 @@
     }
 
     function updateStats(){
-      const total=state.shifts.reduce((a,s)=>a+hoursBetween(s.start,s.end),0);
-      $('#stats').textContent=`${state.shifts.length} shift${state.shifts.length!==1?'s':''} • ${total.toFixed(2)} hrs`;
+      const rows = visibleShifts();
+      const total = rows.reduce((a,s)=>a+hoursBetween(s.start,s.end),0);
+      $('#stats').textContent=`${rows.length} shift${rows.length!==1?'s':''} • ${total.toFixed(2)} hrs`;
     }
 
-    /* ---------- form submit ---------- */
+    /* form submit */
     $('#shiftForm').addEventListener('submit',e=>{
       e.preventDefault();
       const year = yearSel.value;
@@ -332,7 +295,7 @@
       $('#start').value=''; $('#end').value='';
     });
 
-    /* ---------- edit/delete ---------- */
+    /* edit/delete */
     function startEdit(id){
       const s=state.shifts.find(x=>x.id===id); if(!s) return;
       const d=new Date(s.date);
@@ -359,10 +322,19 @@
       save(); render();
     }
 
-    /* ---------- top buttons ---------- */
-    $('#sortDateBtn').addEventListener('click',()=>{state.shifts.sort((a,b)=>a.date.localeCompare(b.date));save();render();});
+    /* controls */
     $('#clearBtn').addEventListener('click',()=>{if(!confirm('Remove all shifts?'))return;state={shifts:[]};save();render();});
 
+    // Toggle: All / Upcoming
+    function setTabStyles(){
+      $('#tabAll').style.opacity = (viewMode==='all') ? '1' : '.7';
+      $('#tabUpcoming').style.opacity = (viewMode==='upcoming') ? '1' : '.7';
+    }
+    $('#tabAll').addEventListener('click', () => { viewMode='all'; setTabStyles(); render(); });
+    $('#tabUpcoming').addEventListener('click', () => { viewMode='upcoming'; setTabStyles(); render(); });
+
+    // initial render with Upcoming selected
+    setTabStyles();
     render();
   </script>
 </body>
