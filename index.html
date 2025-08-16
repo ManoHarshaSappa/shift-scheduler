@@ -5,39 +5,52 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>My Shifts</title>
   <style>
-    body{margin:0;background:#0b0f1a;color:#e5e7eb;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif}
+    :root{
+      --ctrl-h: 46px;
+      --ctrl-pad-x: 14px;
+      --radius: 10px;
+      --border: #1f2937;
+      --bg: #0b0f1a;
+      --panel: #0f172a;
+      --input: #0b1220;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+    }
+
+    body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif}
     .wrap{max-width:900px;margin:24px auto;padding:0 16px}
     header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
     h1{font-size:1.25rem;margin:0}
-    .panel{background:#0f172a;border:1px solid #1f2937;border-radius:14px}
+    .panel{background:var(--panel);border:1px solid var(--border);border-radius:14px}
     form#shiftForm{display:flex;flex-direction:column;gap:10px;padding:14px}
     .row{display:flex;gap:10px;flex-wrap:wrap}
-    input,select,button{background:#0b1220;color:#e5e7eb;border:1px solid #1f2937;border-radius:10px;padding:10px}
+
+    input,select,button{
+      background:var(--input);color:var(--text);
+      border:1px solid var(--border);border-radius:var(--radius);
+      height:var(--ctrl-h); padding:0 var(--ctrl-pad-x); box-sizing:border-box;
+    }
     input:focus,select:focus{outline:2px solid #334155}
     button{cursor:pointer}
-    .btn{padding:10px 14px;border-radius:10px;border:1px solid #1f2937;background:#0b1220}
+    .btn{padding:0 14px}
     .btn.primary{background:#22c55e;color:#062010;border-color:#16a34a}
     .btn.warn{background:#ef4444;color:#300b0b;border-color:#b91c1c}
-    .btn.small{padding:6px 10px;font-size:.8rem}
+    .btn.small{height:36px;padding:0 10px;font-size:.85rem}
 
-    /* compact inputs */
-    select.small{width:80px;padding:6px 8px}
+    select.small{width:90px;appearance:none;-webkit-appearance:none}
     select.month{min-width:110px}
     select.job{min-width:260px}
-    input.day{width:100px;text-align:center}
-    input.hm{width:120px;text-align:center;letter-spacing:1px}
+    input.day{width:110px;text-align:center}
+    input.hm{width:140px;text-align:center;letter-spacing:1px}
     input.hm.invalid{border-color:#ef4444; box-shadow:0 0 0 2px rgba(239,68,68,.25)}
 
-    /* nicer layout */
-    .row-job select{width:100%;font-size:1rem;padding:14px}
+    .row-job select{width:100%;font-size:1rem}
     .row-start, .row-end{align-items:center}
-    .row-end{gap:10px}
-    .row-end .btn.primary{padding:10px 18px}
     .last-line-small *{font-size:.95rem}
 
     .list{padding:10px 12px}
     .monthHdr{color:#a1a1aa;font-weight:600;margin:12px 8px 8px}
-    .item{display:flex;gap:12px;background:#101827;border:1px solid #1f2937;border-radius:12px;padding:12px;margin-bottom:10px}
+    .item{display:flex;gap:12px;background:#101827;border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px}
     .stripe{width:8px;border-radius:8px;background:#334155}
     .meta{width:60px;text-align:center;color:#9ca3af}
     .meta .day{font-size:.75rem;text-transform:uppercase}
@@ -46,14 +59,19 @@
     .title{font-weight:700;margin-bottom:4px}
     .sub{color:#9ca3af}
     .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
-    .chip{background:#111827;border:1px solid #1f2937;border-radius:999px;padding:6px 10px;font-size:.85rem}
+    .chip{background:#111827;border:1px solid var(--border);border-radius:999px;padding:6px 10px;font-size:.85rem}
     .actions{display:flex;gap:6px;margin-top:8px}
     .footer{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;color:#9ca3af}
 
+    #checkBar{display:none;padding:8px 14px;border-top:1px dashed var(--border)}
+    #checkBar .row{align-items:center}
+    #checkBar input[type="date"]{min-width:170px;height:var(--ctrl-h)}
+
     @media (max-width:520px){
-      input.hm{width:110px}
+      input.hm{width:120px}
       input.day{width:90px}
       select.month{min-width:98px}
+      #checkBar input[type="date"]{min-width:140px}
     }
   </style>
 </head>
@@ -73,6 +91,7 @@
           <select id="job" class="job" aria-label="Job / Location">
             <option>Field House (Front Desk)</option>
             <option>Field House (South Desk)</option>
+            <option>Event Staff</option>
             <option>Chartwell (Southside)</option>
             <option>Meetings</option>
             <option>Others</option>
@@ -102,14 +121,29 @@
       </form>
     </section>
 
-    <!-- List + controls (no week bar, no sort button) -->
+    <!-- List + controls -->
     <section class="panel" style="margin-top:14px">
       <div style="padding:10px 14px;display:flex;gap:10px;justify-content:space-between;align-items:center">
-        <div id="viewToggle" style="display:flex;gap:6px">
-          <button id="tabAll" class="btn small" style="padding:6px 10px;opacity:.7">All</button>
-          <button id="tabUpcoming" class="btn small" style="padding:6px 10px">Upcoming</button>
+        <div id="viewToggle" style="display:flex;gap:6px;flex-wrap:wrap">
+          <button id="tabAll" class="btn small" style="opacity:.7">All</button>
+          <button id="tabUpcoming" class="btn small">Upcoming</button>
+          <button id="tabCheck" class="btn small" style="opacity:.7">Check</button>
         </div>
         <div id="stats" class="chip">0 shifts • 0.00 hrs</div>
+      </div>
+
+      <!-- Appears only when Check is active -->
+      <div id="checkBar">
+        <div class="row">
+          <label for="fromDate" style="color:#9ca3af">From</label>
+          <input type="date" id="fromDate" />
+          <label for="toDate" style="color:#9ca3af">To</label>
+          <input type="date" id="toDate" />
+          <button id="applyRange" class="btn primary" type="button">Apply</button>
+        </div>
+        <small style="color:#9ca3af;display:block;margin-top:6px">
+          Lists shifts between these dates (inclusive) and totals them above.
+        </small>
       </div>
 
       <div id="list" class="list"></div>
@@ -122,23 +156,37 @@
   </div>
 
   <script>
-    const key='shift-tracker:v16'; // bump to avoid clashes
+    const key='shift-tracker:v17';
     const $=s=>document.querySelector(s);
     let state=load();
     let editId=null;
 
-    /* default view → UPCOMING */
+    /* Views: 'upcoming' (default), 'all', 'range' */
     let viewMode = 'upcoming';
+    let range = { from:null, to:null };
 
     const pad2 = n => String(n).padStart(2,'0');
     const daysInMonth = (y,m) => new Date(y, m, 0).getDate();
 
+    /* COLORS */
     const JOBS = {
       "Field House (Front Desk)":   "#60a5fa",
+      "Event Staff":                "#60a5fa",
       "Field House (South Desk)":   "#34d399",
       "Chartwell (Southside)":      "#f59e0b",
       "Meetings":                   "#a78bfa",
-      "Others":                     "#737373"
+      "Others":                     "#737373",
+      "Field House (Front Desk - Event Staff)": "#60a5fa" // legacy key
+    };
+
+    /* HOURLY RATES (hidden; used only in Check view) */
+    const RATES = {
+      "Field House (Front Desk)": 12.41,
+      "Field House (South Desk)": 12.41,
+      "Event Staff":              12.41,
+      "Chartwell (Southside)":    15.00,
+      "Meetings":                 0.00,
+      "Others":                   10.50,
     };
 
     function parseHM(t){if(!t)return 0;const [h,m]=t.split(':').map(Number);return h*60+m}
@@ -148,6 +196,7 @@
     function weekday(d){return new Date(d+'T00:00:00').toLocaleDateString(undefined,{weekday:'short'})}
     function dayof(d){return new Date(d+'T00:00:00').getDate()}
     function monthLabel(d){return new Date(d+'T00:00:00').toLocaleDateString(undefined,{month:'long'})}
+    const money = n => n.toLocaleString(undefined,{style:'currency',currency:'USD'});
 
     function parse12h(text){
       const m = /^(\d{1,2}):(\d{2})$/.exec(text || '');
@@ -164,11 +213,10 @@
       return `${pad2(h)}:${pad2(m)}`;
     }
 
-    /* upcoming helpers */
     function shiftEndDate(s){ return new Date(`${s.date}T${s.end}:00`); }
     function isPastShift(s){ return shiftEndDate(s) < new Date(); }
 
-    /* date selects */
+    /* ----- date selects for Add form ----- */
     const yearSel=$('#year'), monthSel=$('#month'), dayInput=$('#day'), jobSel=$('#job');
     (function populateDateSelectors(){
       const today=new Date();
@@ -187,7 +235,7 @@
     yearSel.addEventListener('change', clampDay);
     monthSel.addEventListener('change', clampDay);
 
-    /* time mask */
+    /* ----- strong HH:MM mask ----- */
     function attachTimeMask(el){
       el.addEventListener('input', () => {
         let digits = (el.value || '').replace(/\D/g,'').slice(0,4);
@@ -209,20 +257,30 @@
     attachTimeMask($('#start'));
     attachTimeMask($('#end'));
 
-    /* view + rendering */
+    /* ----- Visible rows based on view ----- */
     function visibleShifts(){
       const sorted = state.shifts.slice()
         .sort((a,b)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start));
-      return viewMode==='upcoming' ? sorted.filter(s=>!isPastShift(s)) : sorted;
+
+      if(viewMode==='upcoming') return sorted.filter(s=>!isPastShift(s));
+      if(viewMode==='range'){
+        const from = range.from || '0000-01-01';
+        const to   = range.to   || '9999-12-31';
+        return sorted.filter(s=>s.date>=from && s.date<=to);
+      }
+      return sorted;
     }
 
+    /* ----- Render ----- */
     function render(){
       const list=$('#list'); list.innerHTML='';
       const rows = visibleShifts();
 
+      document.getElementById('checkBar').style.display = (viewMode==='range') ? 'block' : 'none';
+
       if(!rows.length){
         list.innerHTML = `<div style="text-align:center;color:#9ca3af;padding:20px">
-          ${viewMode==='upcoming' ? 'No upcoming shifts' : 'No shifts yet'}
+          ${viewMode==='upcoming' ? 'No upcoming shifts' : 'No shifts in this view'}
         </div>`;
         updateStats(); return;
       }
@@ -230,7 +288,11 @@
       let currentMonth='';
       rows.forEach(s=>{
         const m=monthLabel(s.date);
-        if(m!==currentMonth){currentMonth=m;const h=document.createElement('div');h.className='monthHdr';h.textContent=m;list.appendChild(h);}
+        if(m!==currentMonth){
+          currentMonth=m;
+          const h=document.createElement('div');
+          h.className='monthHdr'; h.textContent=m; list.appendChild(h);
+        }
         list.appendChild(cardFor(s));
       });
 
@@ -257,13 +319,23 @@
       return wrap;
     }
 
+    /* ----- Stats (with pay only in Check view) ----- */
     function updateStats(){
       const rows = visibleShifts();
-      const total = rows.reduce((a,s)=>a+hoursBetween(s.start,s.end),0);
-      $('#stats').textContent=`${rows.length} shift${rows.length!==1?'s':''} • ${total.toFixed(2)} hrs`;
+      const totalHours = rows.reduce((a,s)=>a+hoursBetween(s.start,s.end),0);
+      let label = `${rows.length} shift${rows.length!==1?'s':''} • ${totalHours.toFixed(2)} hrs`;
+
+      if(viewMode === 'range'){
+        const totalPay = rows.reduce((sum,s)=>{
+          const rate = (RATES[s.job] ?? RATES['Others']);
+          return sum + hoursBetween(s.start,s.end) * rate;
+        }, 0);
+        label += ` • ${money(totalPay)}`;
+      }
+      $('#stats').textContent = label;
     }
 
-    /* form submit */
+    /* ----- Add/Edit/Delete ----- */
     $('#shiftForm').addEventListener('submit',e=>{
       e.preventDefault();
       const year = yearSel.value;
@@ -295,7 +367,6 @@
       $('#start').value=''; $('#end').value='';
     });
 
-    /* edit/delete */
     function startEdit(id){
       const s=state.shifts.find(x=>x.id===id); if(!s) return;
       const d=new Date(s.date);
@@ -322,18 +393,39 @@
       save(); render();
     }
 
-    /* controls */
+    /* ----- Clear All ----- */
     $('#clearBtn').addEventListener('click',()=>{if(!confirm('Remove all shifts?'))return;state={shifts:[]};save();render();});
 
-    // Toggle: All / Upcoming
+    /* ----- View toggles ----- */
     function setTabStyles(){
-      $('#tabAll').style.opacity = (viewMode==='all') ? '1' : '.7';
-      $('#tabUpcoming').style.opacity = (viewMode==='upcoming') ? '1' : '.7';
+      $('#tabAll').style.opacity       = (viewMode==='all') ? '1' : '.7';
+      $('#tabUpcoming').style.opacity  = (viewMode==='upcoming') ? '1' : '.7';
+      $('#tabCheck').style.opacity     = (viewMode==='range') ? '1' : '.7';
+      document.getElementById('checkBar').style.display = (viewMode==='range') ? 'block' : 'none';
     }
     $('#tabAll').addEventListener('click', () => { viewMode='all'; setTabStyles(); render(); });
     $('#tabUpcoming').addEventListener('click', () => { viewMode='upcoming'; setTabStyles(); render(); });
+    $('#tabCheck').addEventListener('click', () => { viewMode='range'; setTabStyles(); render(); });
 
-    // initial render with Upcoming selected
+    /* ----- Range defaults (today → today) & Apply ----- */
+    function todayISO(){
+      const t=new Date();
+      return `${t.getFullYear()}-${pad2(t.getMonth()+1)}-${pad2(t.getDate())}`;
+    }
+    const fromEl = document.getElementById('fromDate');
+    const toEl   = document.getElementById('toDate');
+    fromEl.value = todayISO();
+    toEl.value   = todayISO();
+
+    document.getElementById('applyRange').addEventListener('click', () => {
+      range.from = fromEl.value || null;
+      range.to   = toEl.value   || null;
+      viewMode = 'range';
+      setTabStyles();
+      render();
+    });
+
+    /* initial render with Upcoming selected */
     setTabStyles();
     render();
   </script>
